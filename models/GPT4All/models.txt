@@ -1,0 +1,2 @@
+Add you GPT4all models here
+https://gpt4all.io/index.html

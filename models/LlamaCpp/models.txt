@@ -1,0 +1,4 @@
+Add you LLama models here
+https://huggingface.co/TheBloke/samantha-1.1-llama-7B-GGML
+https://huggingface.co/TheBloke/wizard-mega-13B-GGML
+https://huggingface.co/TheBloke/guanaco-13B-GGML
