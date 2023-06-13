@@ -32,12 +32,14 @@ def list_files(directory: str) -> List[str]:
 def load_environment_variables():
     """Load environment variables from .env file."""
     load_dotenv()
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     return {
         "embeddings_model_name": os.getenv("EMBEDDINGS_MODEL_NAME"),
         "persist_directory": os.getenv('PERSIST_DIRECTORY'),
         "model_n_ctx": os.getenv('MODEL_N_CTX'),
         "models_path": os.getenv('MODELS_PATH'),
-        "target_source_chunks": int(os.getenv('TARGET_SOURCE_CHUNKS', 4))
+        "target_source_chunks": int(os.getenv('TARGET_SOURCE_CHUNKS', 4)),
+        "openAI_key": os.getenv('OPENAI_API_KEY')
     }
 
 

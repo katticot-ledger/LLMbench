@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+from constants import CHROMA_SETTINGS
+from langchain.docstore.document import Document
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import Chroma
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 import glob
 from typing import List
@@ -8,6 +13,7 @@ from tqdm import tqdm
 
 from langchain.document_loaders import (
     CSVLoader,
+    JSONLoader,
     EverNoteLoader,
     PDFMinerLoader,
     TextLoader,
@@ -20,17 +26,11 @@ from langchain.document_loaders import (
     UnstructuredWordDocumentLoader,
 )
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.docstore.document import Document
-from constants import CHROMA_SETTINGS
-
 
 load_dotenv()
 
 
-# Load environment variables
+#  Load environment variables
 persist_directory = os.environ.get('PERSIST_DIRECTORY')
 source_directory = os.environ.get('SOURCE_DIRECTORY', 'source_documents')
 embeddings_model_name = os.environ.get('EMBEDDINGS_MODEL_NAME')
@@ -50,7 +50,7 @@ class MyElmLoader(UnstructuredEmailLoader):
             except ValueError as e:
                 if 'text/html content not found in email' in str(e):
                     # Try plain text
-                    self.unstructured_kwargs["content_source"]="text/plain"
+                    self.unstructured_kwargs["content_source"] = "text/plain"
                     doc = UnstructuredEmailLoader.load(self)
                 else:
                     raise
@@ -61,9 +61,18 @@ class MyElmLoader(UnstructuredEmailLoader):
         return doc
 
 
+def metadata_func(record: dict, metadata: dict) -> dict:
+
+    metadata["inputs"] = record.get("inputs")
+    metadata["outputs"] = record.get("outputs")
+
+    return metadata
+
+
 # Map file extensions to document loaders and their arguments
 LOADER_MAPPING = {
     ".csv": (CSVLoader, {}),
+    ".json": (JSONLoader, {"jq_schema": '.[]', 'content_key': 'name', 'metadata_func': metadata_func}),
     # ".docx": (Docx2txtLoader, {}),
     ".doc": (UnstructuredWordDocumentLoader, {}),
     ".docx": (UnstructuredWordDocumentLoader, {}),
@@ -76,7 +85,7 @@ LOADER_MAPPING = {
     ".pdf": (PDFMinerLoader, {}),
     ".ppt": (UnstructuredPowerPointLoader, {}),
     ".pptx": (UnstructuredPowerPointLoader, {}),
-    ".txt": (TextLoader, {"encoding": "utf8"}),
+    ".json": (TextLoader, {"encoding": "utf8"}),
     # Add more mappings for other file extensions and loaders as needed
 }
 
@@ -90,6 +99,7 @@ def load_single_document(file_path: str) -> List[Document]:
 
     raise ValueError(f"Unsupported file extension '{ext}'")
 
+
 def load_documents(source_dir: str, ignored_files: List[str] = []) -> List[Document]:
     """
     Loads all documents from the source documents directory, ignoring specified files
@@ -99,7 +109,8 @@ def load_documents(source_dir: str, ignored_files: List[str] = []) -> List[Docum
         all_files.extend(
             glob.glob(os.path.join(source_dir, f"**/*{ext}"), recursive=True)
         )
-    filtered_files = [file_path for file_path in all_files if file_path not in ignored_files]
+    filtered_files = [
+        file_path for file_path in all_files if file_path not in ignored_files]
 
     with Pool(processes=os.cpu_count()) as pool:
         results = []
@@ -109,6 +120,7 @@ def load_documents(source_dir: str, ignored_files: List[str] = []) -> List[Docum
                 pbar.update()
 
     return results
+
 
 def process_documents(ignored_files: List[str] = []) -> List[Document]:
     """
@@ -120,10 +132,13 @@ def process_documents(ignored_files: List[str] = []) -> List[Document]:
         print("No new documents to load")
         exit(0)
     print(f"Loaded {len(documents)} new documents from {source_directory}")
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     texts = text_splitter.split_documents(documents)
-    print(f"Split into {len(texts)} chunks of text (max. {chunk_size} tokens each)")
+    print(
+        f"Split into {len(texts)} chunks of text (max. {chunk_size} tokens each)")
     return texts
+
 
 def does_vectorstore_exist(persist_directory: str) -> bool:
     """
@@ -131,12 +146,15 @@ def does_vectorstore_exist(persist_directory: str) -> bool:
     """
     if os.path.exists(os.path.join(persist_directory, 'index')):
         if os.path.exists(os.path.join(persist_directory, 'chroma-collections.parquet')) and os.path.exists(os.path.join(persist_directory, 'chroma-embeddings.parquet')):
-            list_index_files = glob.glob(os.path.join(persist_directory, 'index/*.bin'))
-            list_index_files += glob.glob(os.path.join(persist_directory, 'index/*.pkl'))
+            list_index_files = glob.glob(
+                os.path.join(persist_directory, 'index/*.bin'))
+            list_index_files += glob.glob(
+                os.path.join(persist_directory, 'index/*.pkl'))
             # At least 3 documents are needed in a working vectorstore
             if len(list_index_files) > 3:
                 return True
     return False
+
 
 def main():
     # Create embeddings
@@ -145,9 +163,11 @@ def main():
     if does_vectorstore_exist(persist_directory):
         # Update and store locally vectorstore
         print(f"Appending to existing vectorstore at {persist_directory}")
-        db = Chroma(persist_directory=persist_directory, embedding_function=embeddings, client_settings=CHROMA_SETTINGS)
+        db = Chroma(persist_directory=persist_directory,
+                    embedding_function=embeddings, client_settings=CHROMA_SETTINGS)
         collection = db.get()
-        texts = process_documents([metadata['source'] for metadata in collection['metadatas']])
+        texts = process_documents([metadata['source']
+                                  for metadata in collection['metadatas']])
         print(f"Creating embeddings. May take some minutes...")
         db.add_documents(texts)
     else:
@@ -155,7 +175,8 @@ def main():
         print("Creating new vectorstore")
         texts = process_documents()
         print(f"Creating embeddings. May take some minutes...")
-        db = Chroma.from_documents(texts, embeddings, persist_directory=persist_directory, client_settings=CHROMA_SETTINGS)
+        db = Chroma.from_documents(
+            texts, embeddings, persist_directory=persist_directory, client_settings=CHROMA_SETTINGS)
     db.persist()
     db = None
 
