@@ -16,6 +16,7 @@ class ModelType(Enum):
     LLAMA_CPP = "LlamaCpp"
     GPT_4_ALL = "GPT4All"
     OPEN_AI = "OpenAI"
+    OPEN_AI4 = "OpenAI 4"
 
 
 def get_selected_model(model_type, model_choice, model_n_ctx=2000):
@@ -26,8 +27,10 @@ def get_selected_model(model_type, model_choice, model_n_ctx=2000):
     elif model_type == ModelType.GPT_4_ALL:
         model_path = f"models/{model_type.value}/{model_choice}"
         return GPT4All(model=model_path, n_ctx=model_n_ctx, backend='gptj', verbose=False)
+    elif model_type == ModelType.OPEN_AI4:
+        return OpenAI(temperature=0.9, model_name='gpt-3.5-turbo-0301')
     elif model_type == ModelType.OPEN_AI:
-        return OpenAI(temperature=0.9)
+        return OpenAI(temperature=0.9, model_name='gpt-4-0613')
     else:
         st.write(f"Model {model_type} not supported!")
         exit()
@@ -54,19 +57,26 @@ def execute_query(query, qa, model):
 
 def main():
     env = load_environment_variables()
+    model_choice = None
     embeddings = HuggingFaceEmbeddings(model_name=env["embeddings_model_name"])
-    db = Chroma(persist_directory=env["persist_directory"], embedding_function=embeddings, client_settings=CHROMA_SETTINGS)
-    retriever = db.as_retriever(search_kwargs={"k": env["target_source_chunks"]})
+    db = Chroma(persist_directory=env["persist_directory"],
+                embedding_function=embeddings, client_settings=CHROMA_SETTINGS)
+    retriever = db.as_retriever(
+        search_kwargs={"k": env["target_source_chunks"]})
     models = list_all(env["models_path"])
 
     with st.sidebar:
-        model_type = st.radio('Choose a model type:', [str(key) for key in models.keys()])  # Radio button selector
-        model_choice = st.selectbox("Choose a model:", models[model_type])  # Dropdown selector
-        st.write(f"You selected {model_choice}")
+        model_type = st.radio('Choose a model type:', [
+                              model_type.value for model_type in ModelType])
+        if model_type == ModelType.GPT_4_ALL.value or model_type == ModelType.LLAMA_CPP.value:
+            model_choice = st.selectbox(
+                "Choose a model:", models[model_type])  # Dropdown selector
+            st.write(f"You selected {model_choice}")
+    llm = get_selected_model(ModelType(model_type),
+                             model_choice, env["model_n_ctx"])
 
-    llm = get_selected_model(ModelType(model_type), model_choice, env["model_n_ctx"])
-
-    qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True)
+    qa = RetrievalQA.from_chain_type(
+        llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True)
     query = st.text_input("Enter a query:")
     if query:
         execution_time = execute_query(query, qa, model_choice)
