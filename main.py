@@ -13,10 +13,10 @@ model_time = {}
 
 
 class ModelType(Enum):
+    OPEN_AI4 = "OpenAI 4"
     LLAMA_CPP = "LlamaCpp"
     GPT_4_ALL = "GPT4All"
     OPEN_AI = "OpenAI"
-    OPEN_AI4 = "OpenAI 4"
 
 
 def get_selected_model(model_type, model_choice, model_n_ctx=2000):
