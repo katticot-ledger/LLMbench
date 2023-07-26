@@ -7,9 +7,19 @@ authors = [
     {name = "Keita ATTICOT", email = "keita.atticot@ledger.fr"},
 ]
 dependencies = [
-    "pandas>=2.0.2",
+    "pandas>=2.0.3",
     "openai>=0.27.8",
     "jq>=1.4.1",
+    "python-dotenv>=1.0.0",
+    "chromadb==0.3.26",
+    "langchain>=0.0.237",
+    "sentence-transformers>=2.2.2",
+    "pdfminer>=20191125",
+    "pdfminer-six>=20221105",
+    "streamlit>=1.25.0",
+    "enum34>=1.1.10",
+    "enum-compat>=0.0.3",
+    "llama-cpp-python>=0.1.77",
 ]
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -17,3 +27,12 @@ license = {text = "MIT"}
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "langchain>=0.0.242",
+    "chroma>=0.2.0",
+    "gpt4all>=1.0.7",
+    "llamacpp>=0.1.14",
+    "openai>=0.27.8",
+]
